@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      TEST_ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+
+      # each step below writes into the same allure-results/ dir, so the
+      # final report covers unit + API + E2E together, even though they
+      # run as separate steps (and even if one of them fails).
+      - name: Unit tests
+        run: pytest -m unit --junit-xml=test-results/unit.xml --alluredir=allure-results
+
+      - name: API tests
+        if: always()
+        run: pytest -m api --junit-xml=test-results/api.xml --alluredir=allure-results
+
+      - name: E2E tests
+        if: always()
+        run: pytest -m e2e --junit-xml=test-results/e2e.xml --alluredir=allure-results
+
+      # allure-commandline needs a JVM (ubuntu-latest ships one) — installed
+      # via npm here since Node is already on the runner and this is the
+      # lightest way to get the CLI without a separate download step.
+      - name: Generate Allure report
+        if: always()
+        run: |
+   
